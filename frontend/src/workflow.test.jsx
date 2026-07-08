@@ -1,4 +1,5 @@
 import { MemoryRouter } from "react-router-dom";
+import { ROUTER_FUTURE_FLAGS } from "./routerFuture.js";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -44,7 +45,7 @@ import * as api from "./api.js";
 
 function renderApp() {
   return render(
-    <MemoryRouter initialEntries={["/"]}>
+    <MemoryRouter initialEntries={["/"]} future={ROUTER_FUTURE_FLAGS}>
       <App />
     </MemoryRouter>
   );
@@ -56,6 +57,9 @@ beforeEach(() => {
   vi.spyOn(window, "confirm").mockReturnValue(true);
   global.URL.createObjectURL = vi.fn(() => "blob:mock-url");
   global.URL.revokeObjectURL = vi.fn();
+  // The export flow clicks a real <a href="blob:..."> to trigger a browser
+  // download; jsdom doesn't implement that navigation, so stub it out.
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
 });
 
 describe("full CRUD workflow through real navigation, mouse clicks, and keyboard input", () => {

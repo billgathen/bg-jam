@@ -1,4 +1,5 @@
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
+import { ROUTER_FUTURE_FLAGS } from "../routerFuture.js";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,7 +24,7 @@ function LocationDisplay() {
 
 function renderEditor(initialPath) {
   return render(
-    <MemoryRouter initialEntries={[initialPath]}>
+    <MemoryRouter initialEntries={[initialPath]} future={ROUTER_FUTURE_FLAGS}>
       <LocationDisplay />
       <Routes>
         <Route path="/" element={<div>Library Page</div>} />

@@ -1,4 +1,5 @@
 import { MemoryRouter } from "react-router-dom";
+import { ROUTER_FUTURE_FLAGS } from "../routerFuture.js";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,7 +21,7 @@ const SONGS = [
 
 function renderPage() {
   return render(
-    <MemoryRouter>
+    <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
       <SongLibraryPage />
     </MemoryRouter>
   );
@@ -32,6 +33,9 @@ beforeEach(() => {
   exportMiniComic.mockResolvedValue(new Blob(["pdf"], { type: "application/pdf" }));
   global.URL.createObjectURL = vi.fn(() => "blob:mock-url");
   global.URL.revokeObjectURL = vi.fn();
+  // The export flow clicks a real <a href="blob:..."> to trigger a browser
+  // download; jsdom doesn't implement that navigation, so stub it out.
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
 });
 
 describe("SongLibraryPage", () => {
