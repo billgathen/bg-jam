@@ -31,7 +31,7 @@ export default function PartGrid({ partName, part, onChange }) {
   return (
     <section className="part-section">
       <div className="part-header">
-        <span>{partName} Part</span>
+        <span className="part-letter">{partName}</span>
         <span className="divider" />
       </div>
       {part.rows.map((row, rowIndex) => (

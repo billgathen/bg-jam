@@ -111,9 +111,9 @@ def _draw_part(c: canvas.Canvas, x: float, y: float, w: float, h: float, label: 
     row_h = _row_h(h)
     label_font = label_h * 0.6
 
-    c.setFillColorRGB(*GRAY)
-    c.setFont("Helvetica", label_font)
-    c.drawString(x, y + h - label_h * 0.7, f"{label} Part")
+    c.setFillColorRGB(*DARK)
+    c.setFont("Helvetica-Bold", label_font * 1.3)
+    c.drawString(x, y + h - label_h * 0.7, label)
 
     rows = part["rows"] if part else (None, None)
     _draw_row(c, x, y + h - label_h - row_h, w, row_h, rows[0])

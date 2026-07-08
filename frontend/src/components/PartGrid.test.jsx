@@ -14,9 +14,10 @@ function makePart() {
 }
 
 describe("PartGrid", () => {
-  it("renders the part label with no ending badges", () => {
+  it("renders a bold single-letter part label instead of 'A Part'", () => {
     render(<PartGrid partName="A" part={makePart()} onChange={() => {}} />);
-    expect(screen.getByText("A Part")).toBeInTheDocument();
+    expect(screen.getByText("A", { selector: ".part-letter" })).toBeInTheDocument();
+    expect(screen.queryByText("A Part")).toBeNull();
     // Ending badges (circled 1 / 2) were removed from the header.
     expect(screen.queryByText("1", { selector: ".badge" })).toBeNull();
     expect(screen.queryByText("2", { selector: ".badge" })).toBeNull();

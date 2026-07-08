@@ -110,6 +110,12 @@ a {
   font-size: 1.1rem;
 }
 
+.part-letter {
+  font-weight: 800;
+  font-size: 1.4rem;
+  color: var(--fg);
+}
+
 .part-header .divider {
   flex: 1;
   height: 1px;
@@ -218,6 +224,9 @@ a {
   }
   .part-header {
     font-size: 1rem;
+  }
+  .part-letter {
+    font-size: 1.2rem;
   }
   .cell {
     min-height: 52px;

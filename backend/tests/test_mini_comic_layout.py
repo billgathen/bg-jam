@@ -138,11 +138,17 @@ def test_top_row_rotated_bottom_row_upright():
 def test_blank_template_fills_every_unused_slot():
     pdf_bytes = build_zine_pdf([make_song("Only One")])
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-        text = pdf.pages[0].extract_text()
+        words = pdf.pages[0].extract_words(extra_attrs=["fontname"])
         total_slots = len(CONTENT_PAGES) * SONGS_PER_PANEL
-        # Rotated (top-row) panels come back character-and-word-reversed.
-        assert text.count("A Part") + text.count("A Part"[::-1]) == total_slots
-        assert text.count("B Part") + text.count("B Part"[::-1]) == total_slots
+        # Part labels are standalone bold "A"/"B" words. The Capo Cheat
+        # Sheet's Key column also has bare "A"/"B" letters but in a plain
+        # (non-bold) font, and the cover's "Bluegrass Jam" is bold but "B"
+        # there is part of a larger word, not standalone - so matching whole
+        # words in a bold font uniquely picks out the real part labels.
+        a_labels = [w for w in words if w["text"] == "A" and "Bold" in w["fontname"]]
+        b_labels = [w for w in words if w["text"] == "B" and "Bold" in w["fontname"]]
+        assert len(a_labels) == total_slots
+        assert len(b_labels) == total_slots
 
 
 def test_no_table_of_contents_or_badges_on_cover():
