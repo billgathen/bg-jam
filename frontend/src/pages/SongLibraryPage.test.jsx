@@ -105,6 +105,28 @@ describe("SongLibraryPage", () => {
     expect(deleteSong).toHaveBeenCalledWith(1);
   });
 
+  it("removes a deleted song from the selection count and export payload", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    deleteSong.mockResolvedValue(undefined);
+    listSongs.mockResolvedValueOnce(SONGS).mockResolvedValueOnce(SONGS.slice(1));
+    renderPage();
+    await screen.findByText("Arkansas Traveler");
+
+    await user.click(screen.getByLabelText("Select Arkansas Traveler for export"));
+    await user.click(screen.getByLabelText("Select Sailor's Hornpipe for export"));
+    expect(screen.getByRole("button", { name: "Export Mini-Comic (2)" })).toBeInTheDocument();
+
+    const row = screen.getByText("Arkansas Traveler").closest("li");
+    await user.click(within(row).getByRole("button", { name: "Delete Arkansas Traveler" }));
+
+    await waitFor(() => expect(screen.queryByText("Arkansas Traveler")).toBeNull());
+    expect(screen.getByRole("button", { name: "Export Mini-Comic (1)" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Export Mini-Comic (1)" }));
+    await waitFor(() => expect(exportMiniComic).toHaveBeenCalledWith([3]));
+  });
+
   it("does not delete when confirmation is declined", async () => {
     const user = userEvent.setup();
     vi.spyOn(window, "confirm").mockReturnValue(false);

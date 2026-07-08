@@ -37,6 +37,11 @@ export default function SongLibraryPage() {
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this song?")) return;
     await deleteSong(id);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
     refresh();
   };
 
