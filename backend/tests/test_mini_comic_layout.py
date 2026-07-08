@@ -127,10 +127,16 @@ def test_top_row_rotated_bottom_row_upright():
     pdf_bytes = build_zine_pdf([make_song("Solo")])
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         page = pdf.pages[0]
-        _, _, top0, bottom0 = panel_bbox(0, 0)
-        _, _, top1, bottom1 = panel_bbox(1, 0)
-        top_row_chars = [c for c in page.chars if top0 <= c["top"] <= bottom0]
-        bottom_row_chars = [c for c in page.chars if top1 <= c["top"] <= bottom1]
+        x0, x1, top0, bottom0 = panel_bbox(0, 0)
+        x0b, x1b, top1, bottom1 = panel_bbox(1, 0)
+        # Bound by column as well as row: the fold/cut guide labels can fall
+        # within a row's vertical band while sitting in a different column.
+        top_row_chars = [
+            c for c in page.chars if top0 <= c["top"] <= bottom0 and x0 <= c["x0"] <= x1
+        ]
+        bottom_row_chars = [
+            c for c in page.chars if top1 <= c["top"] <= bottom1 and x0b <= c["x0"] <= x1b
+        ]
         assert top_row_chars and all(c["matrix"][0] < 0 for c in top_row_chars)
         assert bottom_row_chars and all(c["matrix"][0] > 0 for c in bottom_row_chars)
 
@@ -157,3 +163,41 @@ def test_no_table_of_contents_or_badges_on_cover():
         text = pdf.pages[0].extract_text()
         assert "My Jam" not in text
         assert "Solo" in text
+
+
+def test_fold_and_cut_guides_are_present_and_visually_distinct():
+    pdf_bytes = build_zine_pdf([make_song("Solo")])
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        page = pdf.pages[0]
+        text = page.extract_text()
+        assert "CUT" in text
+        assert "fold" in text
+        assert "cut" in text
+
+        lines = page.lines
+        fold_widths = [l["linewidth"] for l in lines if l["linewidth"] < 1.0]
+        cut_widths = [l["linewidth"] for l in lines if l["linewidth"] >= 1.0]
+        # The cut line is drawn solid and thicker than any dashed fold line,
+        # so the two are distinguishable even on a black-and-white printer.
+        assert fold_widths and cut_widths
+        assert min(cut_widths) > max(fold_widths)
+
+
+def test_blank_template_has_no_placeholder_underline():
+    pdf_bytes = build_zine_pdf([])  # no songs -> every content slot is blank
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        page = pdf.pages[0]
+        row, col = cell_for_page(CONTENT_PAGES[0])
+        x0, x1, top, bottom = panel_bbox(row, col)
+        # Shrink the box by a point on each side so the fold-guide line
+        # running exactly along the panel's boundary isn't mistaken for
+        # content inside it.
+        panel_lines = [
+            l
+            for l in page.lines
+            if x0 + 1 <= l["x0"] <= x1 - 1 and top + 1 <= l["top"] <= bottom - 1
+        ]
+        # Bar lines within a blank part's grid are vertical; a horizontal
+        # line here would only be the old placeholder underline, now removed.
+        horizontal_lines = [l for l in panel_lines if abs(l["top"] - l["bottom"]) < 0.01]
+        assert horizontal_lines == []

@@ -16,6 +16,7 @@ GRAY = (0.55, 0.55, 0.55)
 DARK = (0.1, 0.1, 0.1)
 
 MARGIN = 0.3 * inch
+PANEL_PADDING = 0.09 * inch
 GRID_COLS = 4
 GRID_ROWS = 2
 SONGS_PER_PANEL = 2
@@ -125,10 +126,6 @@ def _draw_song_block(c: canvas.Canvas, x: float, y: float, w: float, h: float, s
     part_h = _part_h(h)
 
     if song is None:
-        c.setStrokeColorRGB(*GRAY)
-        c.setLineWidth(0.75)
-        underline_y = y + h - title_h * 0.75
-        c.line(x + w * 0.1, underline_y, x + w * 0.9, underline_y)
         _draw_part(c, x, y + part_h, w, part_h, "A", None)
         _draw_part(c, x, y, w, part_h, "B", None)
         return
@@ -207,13 +204,61 @@ def _draw_back_cover(c: canvas.Canvas, x: float, y: float, w: float, h: float) -
 
 
 def _draw_panel(c: canvas.Canvas, x: float, y: float, w: float, h: float, rotated: bool, draw_fn) -> None:
+    # Inset the content a bit from the panel's true edges (which double as
+    # fold/cut lines) so nothing sits right on a crease once folded.
+    pad = PANEL_PADDING
     c.saveState()
     if rotated:
         c.translate(x + w / 2, y + h / 2)
         c.rotate(180)
-        draw_fn(c, -w / 2, -h / 2, w, h)
+        draw_fn(c, -w / 2 + pad, -h / 2 + pad, w - 2 * pad, h - 2 * pad)
     else:
-        draw_fn(c, x, y, w, h)
+        draw_fn(c, x + pad, y + pad, w - 2 * pad, h - 2 * pad)
+    c.restoreState()
+
+
+def _draw_fold_and_cut_guides(c: canvas.Canvas, page_w: float, page_h: float, panel_w: float, panel_h: float) -> None:
+    left, right = MARGIN, page_w - MARGIN
+    bottom, top = MARGIN, page_h - MARGIN
+    mid_y = MARGIN + panel_h
+    col_xs = [MARGIN + i * panel_w for i in (1, 2, 3)]
+
+    c.saveState()
+    c.setStrokeColorRGB(*GRAY)
+    c.setLineWidth(0.5)
+    c.setDash([3, 3])
+    for x in col_xs:
+        c.line(x, bottom, x, top)
+    c.line(left, mid_y, col_xs[0], mid_y)
+    c.line(col_xs[2], mid_y, right, mid_y)
+    c.restoreState()
+
+    c.saveState()
+    c.setStrokeColorRGB(*DARK)
+    c.setLineWidth(1.2)
+    c.line(col_xs[0], mid_y, col_xs[2], mid_y)
+    c.setFont("Helvetica-Bold", 6)
+    c.setFillColorRGB(*DARK)
+    c.drawCentredString((col_xs[0] + col_xs[2]) / 2, mid_y + 3, "CUT")
+    c.restoreState()
+
+    c.saveState()
+    legend_y = bottom * 0.4
+    c.setStrokeColorRGB(*GRAY)
+    c.setLineWidth(0.5)
+    c.setDash([3, 3])
+    c.line(left, legend_y, left + 14, legend_y)
+    c.setFont("Helvetica", 6)
+    c.setFillColorRGB(*GRAY)
+    c.drawString(left + 18, legend_y - 2, "fold")
+
+    cut_swatch_x = left + 55
+    c.setStrokeColorRGB(*DARK)
+    c.setLineWidth(1.2)
+    c.setDash([])
+    c.line(cut_swatch_x, legend_y, cut_swatch_x + 14, legend_y)
+    c.setFillColorRGB(*DARK)
+    c.drawString(cut_swatch_x + 18, legend_y - 2, "cut")
     c.restoreState()
 
 
@@ -268,6 +313,7 @@ def build_zine_pdf(songs: list[dict], booklet_title: str | None = None) -> bytes
 
                 _draw_panel(c, x, y, panel_w, panel_h, rotated, draw_fn)
 
+        _draw_fold_and_cut_guides(c, page_w, page_h, panel_w, panel_h)
         c.showPage()
 
     c.save()
