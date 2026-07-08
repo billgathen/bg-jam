@@ -12,9 +12,25 @@ async function request(path, options = {}) {
   return res;
 }
 
+export const DEFAULT_BARS = 8;
+export const BAR_OPTIONS = [8, 9, 10, 11, 12];
+
+// `bars` is the combined total across both ending rows, split as evenly as
+// possible (e.g. 9 -> 5 on the 1st ending, 4 + a blank padding bar on the
+// 2nd, so both rows render at the same width). An odd count therefore
+// rounds up to the next even cell count, applied uniformly to both rows.
+export function cellsForBars(bars) {
+  return bars + (bars % 2);
+}
+
+const emptyPart = (bars = DEFAULT_BARS) => {
+  const length = cellsForBars(bars);
+  return { bars, rows: [Array(length).fill("/"), Array(length).fill("/")] };
+};
+
 export const emptyChart = () => ({
-  A: { rows: [Array(8).fill("/"), Array(8).fill("/")] },
-  B: { rows: [Array(8).fill("/"), Array(8).fill("/")] },
+  A: emptyPart(),
+  B: emptyPart(),
 });
 
 export async function listSongs() {

@@ -117,6 +117,17 @@ a {
   color: var(--fg);
 }
 
+.bars-select {
+  min-height: 44px;
+  padding: 0.15rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--gray-light);
+  background: var(--bg);
+  color: var(--gray);
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
 .part-header .divider {
   flex: 1;
   height: 1px;
@@ -125,7 +136,12 @@ a {
 
 .chart-row {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  /* auto-fit packs as many 44px-minimum cells as fit per line (all of them,
+     on any reasonably wide screen), collapses any unused tracks so the real
+     cells stretch to fill the full row width, and only wraps to a second
+     line - never overflows - when the container is too narrow to fit them
+     at that minimum width. */
+  grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
   border-left: 1px solid var(--gray-light);
   border-right: 1px solid var(--gray-light);
   margin-bottom: 0.25rem;
@@ -149,6 +165,10 @@ a {
 
 .cell.measure-end {
   border-right: 1px solid var(--gray-light);
+}
+
+.cell-blank {
+  cursor: default;
 }
 
 .cell .suffix-raised {

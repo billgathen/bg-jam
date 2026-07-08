@@ -10,7 +10,7 @@ describe("Cell display (not editing)", () => {
   it("renders a plain digit token", () => {
     render(<Cell token="5" label={LABEL} onChange={() => {}} />);
     const button = screen.getByRole("button");
-    expect(button).toHaveAccessibleName(`${LABEL}: 5. Activate to edit.`);
+    expect(button).toHaveAccessibleName(`${LABEL}: 5.`);
     expect(button.querySelector(".suffix-raised")).toBeNull();
     expect(button.querySelector(".suffix-flat")).toBeNull();
   });
@@ -18,7 +18,7 @@ describe("Cell display (not editing)", () => {
   it("renders a hold slash", () => {
     render(<Cell token="/" label={LABEL} onChange={() => {}} />);
     const button = screen.getByRole("button");
-    expect(button).toHaveAccessibleName(`${LABEL}: hold. Activate to edit.`);
+    expect(button).toHaveAccessibleName(`${LABEL}: hold.`);
     expect(button.querySelector(".slash")).not.toBeNull();
   });
 
@@ -40,9 +40,42 @@ describe("Cell display (not editing)", () => {
     render(<Cell token="1" label={LABEL} onChange={() => {}} measureEnd />);
     expect(screen.getByRole("button")).toHaveClass("measure-end");
   });
+
+  it("renders a blank padding bar with no glyph at all", () => {
+    render(<Cell token="" label={LABEL} onChange={() => {}} />);
+    const button = screen.getByRole("button");
+    expect(button).toHaveAccessibleName(`${LABEL}: empty.`);
+    expect(button.querySelector(".slash")).toBeNull();
+    expect(button.textContent).toBe("");
+  });
 });
 
 describe("Cell editing", () => {
+  it("keyboard Tab focus automatically enters edit mode, and tabbing away exits it", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <>
+        <button type="button">before</button>
+        <Cell token="1" label={LABEL} onChange={onChange} />
+        <button type="button">after</button>
+      </>
+    );
+
+    await user.tab();
+    expect(screen.getByText("before")).toHaveFocus();
+
+    await user.tab();
+    const input = screen.getByLabelText(LABEL);
+    expect(input).toHaveFocus();
+    expect(input).toHaveValue("1");
+
+    await user.tab();
+    expect(screen.getByText("after")).toHaveFocus();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByRole("button", { name: `${LABEL}: 1.` })).toBeInTheDocument();
+  });
+
   it("enters edit mode with the existing value selected on click", async () => {
     const user = userEvent.setup();
     render(<Cell token="1" label={LABEL} onChange={() => {}} />);
@@ -103,6 +136,24 @@ describe("Cell editing", () => {
     expect(onChange).toHaveBeenCalledWith("/");
   });
 
+  it("tabbing through an already-blank cell without typing leaves it blank", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <>
+        <Cell token="" label={LABEL} onChange={onChange} />
+        <button type="button">after</button>
+      </>
+    );
+
+    await user.tab(); // focus the blank cell, auto-entering edit mode
+    expect(screen.getByLabelText(LABEL)).toHaveValue("");
+    await user.tab(); // tab away without typing anything
+
+    expect(onChange).toHaveBeenCalledWith("");
+    expect(screen.getByRole("button", { name: `${LABEL}: empty.` })).toBeInTheDocument();
+  });
+
   it("keeps invalid input visible instead of discarding it on Enter", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
@@ -144,6 +195,6 @@ describe("Cell editing", () => {
 
     expect(onChange).not.toHaveBeenCalled();
     expect(screen.queryByRole("textbox")).toBeNull();
-    expect(screen.getByRole("button")).toHaveAccessibleName(`${LABEL}: 1. Activate to edit.`);
+    expect(screen.getByRole("button")).toHaveAccessibleName(`${LABEL}: 1.`);
   });
 });

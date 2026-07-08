@@ -39,8 +39,20 @@ const SAVED_SONG = {
   id: 42,
   title: "Arkansas Traveler",
   chart: {
-    A: { rows: [["1", "4", "5", "1", "5", "/", "/", "/"], ["1", "4", "5", "1", "/", "4", "5", "1"]] },
-    B: { rows: [["1", "4", "1", "5", "1", "4", "1", "5"], ["1", "4", "1", "5", "1", "4", "5", "1"]] },
+    A: {
+      bars: 8,
+      rows: [
+        ["1", "4", "5", "1", "5", "/", "/", "/"],
+        ["1", "4", "5", "1", "/", "4", "5", "1"],
+      ],
+    },
+    B: {
+      bars: 8,
+      rows: [
+        ["1", "4", "1", "5", "1", "4", "1", "5"],
+        ["1", "4", "1", "5", "1", "4", "5", "1"],
+      ],
+    },
   },
 };
 
@@ -52,7 +64,9 @@ describe("SongEditorPage — creating a new song", () => {
   it("starts with a default title and a blank chart of hold slashes", () => {
     renderEditor("/songs/new");
     expect(screen.getByLabelText("Song title")).toHaveValue("Untitled Tune");
-    expect(screen.getAllByRole("button", { name: /hold\. Activate to edit\./ })).toHaveLength(32);
+    // 2 parts x 2 endings x 8 cells (default 8 bars per part, matching the
+    // original fixed layout exactly)
+    expect(screen.getAllByRole("button", { name: /hold\.$/ })).toHaveLength(32);
   });
 
   it("lets the user type a title and edit a cell with mouse + keyboard, then save", async () => {

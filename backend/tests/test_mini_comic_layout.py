@@ -8,6 +8,7 @@ from app.services.mini_comic import (
     BOTTOM_ROW_PAGES,
     CONTENT_PAGES,
     COVER_PAGE,
+    DEFAULT_BARS,
     GRID_COLS,
     MARGIN,
     SONGS_PER_PANEL,
@@ -20,8 +21,8 @@ PANEL_W = (PAGE_W - 2 * MARGIN) / GRID_COLS
 PANEL_H = (PAGE_H - 2 * MARGIN) / 2
 
 SAMPLE_CHART = {
-    "A": {"rows": [["1"] * 8, ["1"] * 8]},
-    "B": {"rows": [["1"] * 8, ["1"] * 8]},
+    "A": {"bars": 8, "rows": [["1"] * 8, ["1"] * 8]},
+    "B": {"bars": 8, "rows": [["1"] * 8, ["1"] * 8]},
 }
 
 
@@ -201,3 +202,53 @@ def test_blank_template_has_no_placeholder_underline():
         # line here would only be the old placeholder underline, now removed.
         horizontal_lines = [l for l in panel_lines if abs(l["top"] - l["bottom"]) < 0.01]
         assert horizontal_lines == []
+
+
+def _vertical_line_count_in_panel(pdf_bytes: bytes, row: int, col: int) -> int:
+    x0, x1, top, bottom = panel_bbox(row, col)
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        lines = pdf.pages[0].lines
+    return len(
+        [
+            l
+            for l in lines
+            if x0 - 1 <= l["x0"] <= x1 + 1
+            and top - 1 <= l["top"] <= bottom + 1
+            and abs(l["x0"] - l["x1"]) < 0.01
+        ]
+    )
+
+
+def _boundary_line_count(num_cells: int) -> int:
+    # Bar-line dividers are drawn every 2 cells, including both edges.
+    return num_cells // 2 + 1
+
+
+def test_more_bars_draws_more_vertical_bar_lines():
+    row, col = cell_for_page(CONTENT_PAGES[0])
+    base_song = {
+        "title": "Base",
+        "chart": {
+            "A": {"bars": 8, "rows": [["1"] * 8, ["1"] * 8]},
+            "B": {"bars": 8, "rows": [["1"] * 8, ["1"] * 8]},
+        },
+    }
+    wide_song = {
+        "title": "Wide",
+        "chart": {
+            "A": {"bars": 8, "rows": [["1"] * 8, ["1"] * 8]},
+            "B": {"bars": 12, "rows": [["1"] * 12, ["1"] * 12]},
+        },
+    }
+    base_count = _vertical_line_count_in_panel(build_zine_pdf([base_song]), row, col)
+    wide_count = _vertical_line_count_in_panel(build_zine_pdf([wide_song]), row, col)
+    # Going from 8 to 12 bars adds this many boundary lines per row, across B's 2 rows.
+    lines_diff = _boundary_line_count(12) - _boundary_line_count(8)
+    assert wide_count - base_count == lines_diff * 2
+
+
+def test_blank_template_defaults_to_eight_bars_worth_of_lines():
+    row, col = cell_for_page(CONTENT_PAGES[0])
+    count = _vertical_line_count_in_panel(build_zine_pdf([]), row, col)
+    # 2 blank song slots per panel * 2 parts * 2 rows * boundary lines for 8 bars.
+    assert count == 2 * 2 * 2 * _boundary_line_count(DEFAULT_BARS)

@@ -1,6 +1,6 @@
 SAMPLE_CHART = {
-    "A": {"rows": [["1", "4", "5", "1", "5", "/", "/", "/"], ["1", "4", "5", "1", "/", "4", "5", "1"]]},
-    "B": {"rows": [["1", "4", "1", "5", "1", "4", "1", "5"], ["1", "4", "1", "5", "1", "4", "5", "1"]]},
+    "A": {"bars": 8, "rows": [["1"] * 8, ["1"] * 8]},
+    "B": {"bars": 8, "rows": [["1"] * 8, ["1"] * 8]},
 }
 
 
@@ -40,7 +40,7 @@ async def test_update_song(client):
     created = (await client.post("/api/songs", json={"title": "Old Title", "chart": SAMPLE_CHART})).json()
 
     updated_chart = SAMPLE_CHART.copy()
-    updated_chart["A"] = {"rows": [["5"] * 8, ["5"] * 8]}
+    updated_chart["A"] = {"bars": 8, "rows": [["5"] * 8, ["5"] * 8]}
     resp = await client.put(
         f"/api/songs/{created['id']}", json={"title": "New Title", "chart": updated_chart}
     )
@@ -71,6 +71,6 @@ async def test_delete_missing_song_404(client):
 
 
 async def test_create_rejects_invalid_chart(client):
-    bad_chart = {"A": {"rows": [["Am"] * 8, ["1"] * 8]}, "B": SAMPLE_CHART["B"]}
+    bad_chart = {"A": {"bars": 8, "rows": [["Am"] * 8, ["1"] * 8]}, "B": SAMPLE_CHART["B"]}
     resp = await client.post("/api/songs", json={"title": "Bad", "chart": bad_chart})
     assert resp.status_code == 422

@@ -10,8 +10,11 @@ from reportlab.pdfgen import canvas
 LOGO_PATH = Path(__file__).resolve().parent.parent / "assets" / "switchback-logo.png"
 
 CELL_RE = re.compile(r"^([1-7])(.*)$")
-ROW_LENGTH = 8
-MEASURE_BOUNDARIES = (0, 2, 4, 6, 8)
+# Bar-line dividers are drawn every 2 cells; a part's "bars" value is its
+# row's cell count directly (not bars * CELLS_PER_BAR) - see schemas.py.
+CELLS_PER_BAR = 2
+DEFAULT_BARS = 8
+DEFAULT_ROW_LENGTH = DEFAULT_BARS
 GRAY = (0.55, 0.55, 0.55)
 DARK = (0.1, 0.1, 0.1)
 
@@ -63,6 +66,8 @@ def _fit_font_size(c: canvas.Canvas, text: str, font_name: str, max_size: float,
 
 
 def _draw_cell_token(c: canvas.Canvas, cx: float, cy: float, token: str, row_h: float) -> None:
+    if token == "":
+        return  # completely blank padding bar - nothing to draw
     if token == "/":
         c.setStrokeColorRGB(*GRAY)
         c.setLineWidth(max(row_h * 0.05, 0.6))
@@ -94,11 +99,13 @@ def _draw_cell_token(c: canvas.Canvas, cx: float, cy: float, token: str, row_h: 
         c.drawString(start_x + base_w, baseline_y - suffix_font * 0.05, suffix)
 
 
-def _draw_row(c: canvas.Canvas, x: float, y: float, w: float, h: float, cells: list[str] | None) -> None:
-    cell_w = w / ROW_LENGTH
+def _draw_row(
+    c: canvas.Canvas, x: float, y: float, w: float, h: float, cells: list[str] | None, num_cells: int
+) -> None:
+    cell_w = w / num_cells
     c.setStrokeColorRGB(*GRAY)
     c.setLineWidth(0.75)
-    for boundary in MEASURE_BOUNDARIES:
+    for boundary in range(0, num_cells + 1, CELLS_PER_BAR):
         lx = x + boundary * cell_w
         c.line(lx, y, lx, y + h)
     if cells is None:
@@ -116,9 +123,15 @@ def _draw_part(c: canvas.Canvas, x: float, y: float, w: float, h: float, label: 
     c.setFont("Helvetica-Bold", label_font * 1.3)
     c.drawString(x, y + h - label_h * 0.7, label)
 
-    rows = part["rows"] if part else (None, None)
-    _draw_row(c, x, y + h - label_h - row_h, w, row_h, rows[0])
-    _draw_row(c, x, y + h - label_h - 2 * row_h, w, row_h, rows[1])
+    if part:
+        rows = part["rows"]
+        num_cells = len(rows[0])
+    else:
+        rows = (None, None)
+        num_cells = DEFAULT_ROW_LENGTH
+
+    _draw_row(c, x, y + h - label_h - row_h, w, row_h, rows[0], num_cells)
+    _draw_row(c, x, y + h - label_h - 2 * row_h, w, row_h, rows[1], num_cells)
 
 
 def _draw_song_block(c: canvas.Canvas, x: float, y: float, w: float, h: float, song: dict | None) -> None:

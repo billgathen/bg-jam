@@ -1,6 +1,8 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
-const TOKEN_RE = /^([1-7](b|#)?(m|dim|aug|sus2|sus4|7)?|\/)$/;
+// Trailing "?" allows "" too: a completely blank padding bar, distinct
+// from "/" (hold/continue previous chord).
+const TOKEN_RE = /^([1-7](b|#)?(m|dim|aug|sus2|sus4|7)?|\/)?$/;
 
 function parseToken(token) {
   if (token === "/") return { base: "/", suffix: "" };
@@ -10,6 +12,7 @@ function parseToken(token) {
 
 function describeToken(token) {
   if (token === "/") return "hold";
+  if (token === "") return "empty";
   const { base, suffix } = parseToken(token);
   const names = { m: "minor", dim: "diminished", aug: "augmented", sus2: "sus 2", sus4: "sus 4", 7: "seventh" };
   return suffix ? `${base} ${names[suffix] || suffix}` : base;
@@ -32,7 +35,10 @@ export default function Cell({ token, label, onChange, measureEnd }) {
 
   const commit = () => {
     if (trimmed === "") {
-      onChange("/");
+      // Clearing a cell that had real content means "hold/continue" - but
+      // passing through an already-blank padding cell without typing
+      // anything shouldn't turn it into a slash.
+      onChange(token === "" ? "" : "/");
       setEditing(false);
     } else if (TOKEN_RE.test(trimmed)) {
       onChange(trimmed);
@@ -68,8 +74,8 @@ export default function Cell({ token, label, onChange, measureEnd }) {
     <button
       type="button"
       className={measureEnd ? "cell measure-end" : "cell"}
-      aria-label={`${label}: ${describeToken(token)}. Activate to edit.`}
-      onClick={() => setEditing(true)}
+      aria-label={`${label}: ${describeToken(token)}.`}
+      onFocus={() => setEditing(true)}
     >
       {token === "/" ? (
         <span className="slash" aria-hidden="true">
