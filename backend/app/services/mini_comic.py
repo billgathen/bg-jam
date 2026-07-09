@@ -181,7 +181,7 @@ def _draw_song_block(c: canvas.Canvas, x: float, y: float, w: float, h: float, s
     _draw_part(c, x, y, w, part_h, "B part (x 2)", song["chart"]["B"])
 
 
-def _draw_cover(c: canvas.Canvas, x: float, y: float, w: float, h: float) -> None:
+def _draw_cover(c: canvas.Canvas, x: float, y: float, w: float, h: float, pub_date: date) -> None:
     max_width = w * 0.9
     logo_h = h * 0.5
     if LOGO_PATH.exists():
@@ -205,6 +205,11 @@ def _draw_cover(c: canvas.Canvas, x: float, y: float, w: float, h: float) -> Non
     line2_font = _fit_font_size(c, "Chord Charts", "Helvetica", h * 0.065, max_width)
     c.setFont("Helvetica", line2_font)
     c.drawCentredString(x + w / 2, y + h * 0.32 - line1_font * 1.3, "Chord Charts")
+
+    date_font = h * 0.03
+    c.setFillColorRGB(*GRAY)
+    c.setFont("Helvetica", date_font)
+    c.drawRightString(x + w, y + date_font * 0.3, pub_date.strftime("%b %-d, %Y"))
 
 
 def _draw_table(
@@ -321,7 +326,8 @@ def build_zine_pdf(songs: list[dict], booklet_title: str | None = None) -> bytes
     panel_h = (page_h - 2 * MARGIN_Y) / GRID_ROWS
     per_sheet = len(CONTENT_PAGES) * SONGS_PER_PANEL
 
-    title = booklet_title or f"Jam Songs — {date.today().isoformat()}"
+    pub_date = date.today()
+    title = booklet_title or f"Jam Songs — {pub_date.isoformat()}"
     c.setTitle(title)
     sheets = [songs[i : i + per_sheet] for i in range(0, max(len(songs), 1), per_sheet)]
 
@@ -347,7 +353,7 @@ def build_zine_pdf(songs: list[dict], booklet_title: str | None = None) -> bytes
                 if kind == "cover":
 
                     def draw_fn(c, x, y, w, h):
-                        _draw_cover(c, x, y, w, h)
+                        _draw_cover(c, x, y, w, h, pub_date)
 
                 elif kind == "back":
 

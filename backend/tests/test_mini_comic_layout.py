@@ -1,4 +1,5 @@
 import io
+from datetime import date
 
 import pdfplumber
 from reportlab.lib.pagesizes import landscape, letter
@@ -9,6 +10,7 @@ from app.services.mini_comic import (
     CONTENT_PAGES,
     COVER_PAGE,
     DEFAULT_BARS,
+    GRAY,
     GRID_COLS,
     MARGIN_Y,
     PANEL_INSET_X,
@@ -104,6 +106,32 @@ def test_cover_text_lands_in_mapped_panel():
         words = pdf.pages[0].extract_words()
         row, col = cell_for_page(COVER_PAGE)
         assert any(word_matches(w, "Bluegrass") and word_in_panel(w, row, col) for w in words)
+
+
+def test_cover_shows_grey_publication_date_in_lower_right():
+    pdf_bytes = build_zine_pdf([make_song("Solo")])
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        page = pdf.pages[0]
+        row, col = cell_for_page(COVER_PAGE)
+        x0, x1, top, bottom = panel_bbox(row, col)
+
+        # Grey text uniquely picks out the date stamp on the cover (the
+        # title/tagline are DARK, not GRAY).
+        words = page.extract_words(extra_attrs=["non_stroking_color"])
+        date_words = [
+            w
+            for w in words
+            if x0 <= w["x0"] <= x1 and top <= w["top"] <= bottom and w.get("non_stroking_color") == GRAY
+        ]
+        assert date_words
+        rendered = " ".join(w["text"] for w in date_words)
+        assert rendered[::-1] == date.today().strftime("%b %-d, %Y")
+
+        # The cover panel is in the 180-degree-rotated top row, so what
+        # reads as "lower-right" once folded is near the panel's top-left
+        # corner in raw, unrotated page coordinates.
+        assert all(w["x1"] < x0 + (x1 - x0) * 0.5 for w in date_words)
+        assert all(w["bottom"] < top + (bottom - top) * 0.2 for w in date_words)
 
 
 def test_back_cover_text_lands_in_mapped_panel():
