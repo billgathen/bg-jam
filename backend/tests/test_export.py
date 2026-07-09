@@ -42,6 +42,7 @@ async def test_export_contains_song_and_capo_sheet(client):
         # The cover and back cover sit in 180-degree-rotated panels, so
         # pdfplumber reads them back character-and-word-reversed.
         assert "Capo Cheat Sheet"[::-1] in text
+        assert "Nashville Numbers"[::-1] in text
         assert "Bluegrass Jam"[::-1] in text
 
 

@@ -29,6 +29,9 @@ MARGIN_Y = 0.3 * inch
 PANEL_INSET_X = 0.5 * inch
 PANEL_PADDING = 0.09 * inch
 LEGEND_MARGIN = 0.15 * inch
+# 1 CSS rem (16px) at the standard 96px/inch, converted to PDF points.
+REM = (16 / 96) * inch
+TITLE_WIDTH_OVERHANG = 0.5 * REM
 GRID_COLS = 4
 GRID_ROWS = 2
 SONGS_PER_PANEL = 2
@@ -52,6 +55,16 @@ CAPO_CHEAT_SHEET = (
     ("E", "4", "C"),
     ("F", "5", "C"),
     ("G", "none", "G"),
+)
+
+NASHVILLE_NUMBER_TABLE = (
+    ("1", "G", "C"),
+    ("2m", "Am", "Dm"),
+    ("3m", "Bm", "Em"),
+    ("4", "C", "F"),
+    ("5", "D", "G"),
+    ("6m", "Em", "Am"),
+    ("7b", "F", "B"),
 )
 
 
@@ -148,19 +161,24 @@ def _draw_song_block(c: canvas.Canvas, x: float, y: float, w: float, h: float, s
     part_h = _part_h(h)
 
     if song is None:
-        _draw_part(c, x, y + part_h, w, part_h, "A (x 2)", None)
-        _draw_part(c, x, y, w, part_h, "B (x 2)", None)
+        _draw_part(c, x, y + part_h, w, part_h, "A part (x 2)", None)
+        _draw_part(c, x, y, w, part_h, "B part (x 2)", None)
         return
 
     max_title_font = title_h * 0.65
-    title_font = _fit_font_size(c, song["title"], "Helvetica-Bold", max_title_font, w * 0.94)
+    # Let a long title use the same full width as the chord grid below it -
+    # plus a little overhang on each side - before shrinking the font,
+    # rather than shrinking early to stay inside a narrower band.
+    title_font = _fit_font_size(
+        c, song["title"], "Helvetica-Bold", max_title_font, w + 2 * TITLE_WIDTH_OVERHANG
+    )
 
     c.setFillColorRGB(*DARK)
     c.setFont("Helvetica-Bold", title_font)
     c.drawCentredString(x + w / 2, y + h - title_h * 0.75, song["title"])
 
-    _draw_part(c, x, y + part_h, w, part_h, "A (x 2)", song["chart"]["A"])
-    _draw_part(c, x, y, w, part_h, "B (x 2)", song["chart"]["B"])
+    _draw_part(c, x, y + part_h, w, part_h, "A part (x 2)", song["chart"]["A"])
+    _draw_part(c, x, y, w, part_h, "B part (x 2)", song["chart"]["B"])
 
 
 def _draw_cover(c: canvas.Canvas, x: float, y: float, w: float, h: float) -> None:
@@ -189,14 +207,16 @@ def _draw_cover(c: canvas.Canvas, x: float, y: float, w: float, h: float) -> Non
     c.drawCentredString(x + w / 2, y + h * 0.32 - line1_font * 1.3, "Chord Charts")
 
 
-def _draw_capo_table(c: canvas.Canvas, x: float, y: float, w: float, h: float) -> None:
+def _draw_table(
+    c: canvas.Canvas, x: float, y: float, w: float, h: float, title: str, header: tuple, data_rows: tuple
+) -> None:
     title_h = h * 0.2
     c.setFillColorRGB(*DARK)
-    title_font = _fit_font_size(c, "Capo Cheat Sheet", "Helvetica-Bold", title_h * 0.55, w * 0.94)
+    title_font = _fit_font_size(c, title, "Helvetica-Bold", title_h * 0.55, w * 0.94)
     c.setFont("Helvetica-Bold", title_font)
-    c.drawCentredString(x + w / 2, y + h - title_h * 0.7, "Capo Cheat Sheet")
+    c.drawCentredString(x + w / 2, y + h - title_h * 0.7, title)
 
-    rows = (("Key", "Capo", "Play"), *CAPO_CHEAT_SHEET)
+    rows = (header, *data_rows)
     table_h = h - title_h
     table_top = y + table_h
     row_h = table_h / len(rows)
@@ -212,17 +232,18 @@ def _draw_capo_table(c: canvas.Canvas, x: float, y: float, w: float, h: float) -
         c.line(lx, y, lx, table_top)
 
     cell_font = row_h * 0.45
-    for r, (key, capo, play) in enumerate(rows):
+    for r, row in enumerate(rows):
         font_name = "Helvetica-Bold" if r == 0 else "Helvetica"
         c.setFillColorRGB(*DARK)
         c.setFont(font_name, cell_font)
         cy = table_top - (r + 0.5) * row_h - cell_font * 0.35
-        for ci, text in enumerate((key, capo, play)):
+        for ci, text in enumerate(row):
             c.drawCentredString(x + ci * col_w + col_w / 2, cy, text)
 
 
 def _draw_back_cover(c: canvas.Canvas, x: float, y: float, w: float, h: float) -> None:
-    _draw_capo_table(c, x, y + h / 2, w, h / 2)
+    _draw_table(c, x, y + h / 2, w, h / 2, "Capo Cheat Sheet", ("Key", "Capo", "Play"), CAPO_CHEAT_SHEET)
+    _draw_table(c, x, y, w, h / 2, "Nashville Numbers", ("Number", "G", "C"), NASHVILLE_NUMBER_TABLE)
 
 
 def _draw_panel(c: canvas.Canvas, x: float, y: float, w: float, h: float, rotated: bool, draw_fn) -> None:

@@ -11,7 +11,9 @@ from app.services.mini_comic import (
     DEFAULT_BARS,
     GRID_COLS,
     MARGIN_Y,
+    PANEL_INSET_X,
     SONGS_PER_PANEL,
+    TITLE_WIDTH_OVERHANG,
     TOP_ROW_PAGES,
     build_zine_pdf,
 )
@@ -112,12 +114,42 @@ def test_back_cover_text_lands_in_mapped_panel():
         assert any(word_matches(w, "Capo") and word_in_panel(w, row, col) for w in words)
 
 
+def test_nashville_number_table_lands_in_mapped_panel():
+    pdf_bytes = build_zine_pdf([make_song("Solo")])
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        words = pdf.pages[0].extract_words()
+        row, col = cell_for_page(BACK_COVER_PAGE)
+        assert any(word_matches(w, "Nashville") and word_in_panel(w, row, col) for w in words)
+        assert any(word_matches(w, "6m") and word_in_panel(w, row, col) for w in words)
+
+
 def test_first_song_lands_in_first_content_panel():
     pdf_bytes = build_zine_pdf([make_song("UniqueTitleXYZ")])
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         words = pdf.pages[0].extract_words()
         row, col = cell_for_page(CONTENT_PAGES[0])
         assert any(word_matches(w, "UniqueTitleXYZ") and word_in_panel(w, row, col) for w in words)
+
+
+def test_long_title_uses_full_content_width_not_just_94_percent():
+    # A long title should be allowed to shrink only as far as needed to fit
+    # the same width as the chord grid below it, not stop shrinking early to
+    # fit an artificially narrower band.
+    content_w = PANEL_W - 2 * PANEL_INSET_X
+    # Long enough to force shrinking below the height-based max font, short
+    # enough not to bottom out at the font-size floor (which would fit
+    # nowhere close to full width regardless of the width cap being tested).
+    title = "X" * 30
+    pdf_bytes = build_zine_pdf([make_song(title)])
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        words = pdf.pages[0].extract_words()
+        row, col = cell_for_page(CONTENT_PAGES[0])
+        match = next(w for w in words if word_matches(w, title) and word_in_panel(w, row, col))
+        rendered_w = match["x1"] - match["x0"]
+        # Exceeds the chord grid's own width - proof the overhang is in play,
+        # not just the (already-fixed) full content width.
+        assert rendered_w > content_w
+        assert rendered_w <= content_w + 2 * TITLE_WIDTH_OVERHANG + 0.5  # small float slop
 
 
 def test_top_row_rotated_bottom_row_upright():
@@ -162,8 +194,8 @@ def test_part_labels_indicate_each_part_is_played_twice():
     pdf_bytes = build_zine_pdf([make_song("Only One")])
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         text = pdf.pages[0].extract_text()
-        assert "A (x 2)" in text
-        assert "B (x 2)" in text
+        assert "A part (x 2)" in text
+        assert "B part (x 2)" in text
 
 
 def test_no_table_of_contents_or_badges_on_cover():
