@@ -10,15 +10,15 @@ from app.services.mini_comic import (
     COVER_PAGE,
     DEFAULT_BARS,
     GRID_COLS,
-    MARGIN,
+    MARGIN_Y,
     SONGS_PER_PANEL,
     TOP_ROW_PAGES,
     build_zine_pdf,
 )
 
 PAGE_W, PAGE_H = landscape(letter)
-PANEL_W = (PAGE_W - 2 * MARGIN) / GRID_COLS
-PANEL_H = (PAGE_H - 2 * MARGIN) / 2
+PANEL_W = PAGE_W / GRID_COLS
+PANEL_H = (PAGE_H - 2 * MARGIN_Y) / 2
 
 SAMPLE_CHART = {
     "A": {"bars": 8, "rows": [["1"] * 8, ["1"] * 8]},
@@ -32,12 +32,12 @@ def make_song(title: str) -> dict:
 
 def panel_bbox(row: int, col: int) -> tuple[float, float, float, float]:
     """(x0, x1, top, bottom) of a grid panel in pdfplumber's top-down coordinates."""
-    x0 = MARGIN + col * PANEL_W
+    x0 = col * PANEL_W
     x1 = x0 + PANEL_W
     if row == 0:
-        top, bottom = MARGIN, MARGIN + PANEL_H
+        top, bottom = MARGIN_Y, MARGIN_Y + PANEL_H
     else:
-        top, bottom = MARGIN + PANEL_H, MARGIN + 2 * PANEL_H
+        top, bottom = MARGIN_Y + PANEL_H, MARGIN_Y + 2 * PANEL_H
     return x0, x1, top, bottom
 
 
@@ -158,12 +158,42 @@ def test_blank_template_fills_every_unused_slot():
         assert len(b_labels) == total_slots
 
 
+def test_part_labels_indicate_each_part_is_played_twice():
+    pdf_bytes = build_zine_pdf([make_song("Only One")])
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        text = pdf.pages[0].extract_text()
+        assert "A (x 2)" in text
+        assert "B (x 2)" in text
+
+
 def test_no_table_of_contents_or_badges_on_cover():
     pdf_bytes = build_zine_pdf([make_song("Solo")], booklet_title="My Jam")
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         text = pdf.pages[0].extract_text()
         assert "My Jam" not in text
         assert "Solo" in text
+
+
+def test_fold_lines_sit_at_true_physical_quarters_so_all_panels_match_width():
+    # The 3 interior dashed fold lines must land at exact quarters of the
+    # sheet width, not margin-adjusted positions - otherwise the outer two
+    # folded panels end up physically wider than the inner two once cut and
+    # folded, even though every panel's printed content is margin-safe.
+    pdf_bytes = build_zine_pdf([make_song("Solo")])
+    full_sheet_height = PAGE_H - 2 * MARGIN_Y
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        lines = pdf.pages[0].lines
+        # The 3 interior fold guides are the only vertical lines that run the
+        # full sheet height (bar-line dividers inside a panel are much
+        # shorter), which uniquely picks them out from the chart content.
+        full_height_vertical = [
+            l
+            for l in lines
+            if abs(l["x0"] - l["x1"]) < 0.01 and l["height"] > full_sheet_height - 1
+        ]
+        xs = sorted({round(l["x0"], 1) for l in full_height_vertical})
+        expected = [round(PANEL_W, 1), round(2 * PANEL_W, 1), round(3 * PANEL_W, 1)]
+        assert xs == expected
 
 
 def test_fold_and_cut_guides_are_present_and_visually_distinct():

@@ -18,8 +18,17 @@ DEFAULT_ROW_LENGTH = DEFAULT_BARS
 GRAY = (0.55, 0.55, 0.55)
 DARK = (0.1, 0.1, 0.1)
 
-MARGIN = 0.3 * inch
+MARGIN_Y = 0.3 * inch
+# Column boundaries sit at true quarters of the sheet width (no outer-edge-only
+# margin), so every folded panel - outer and inner alike - is physically the
+# same width. PANEL_INSET_X is then applied as content padding on *both* sides
+# of every panel, including interior fold lines, not just the two physical
+# sheet edges: that keeps content clear of the printer's unprintable area on
+# the outer edges while giving inner panels an equal gutter at their fold
+# lines, rather than shrinking only the outer two panels.
+PANEL_INSET_X = 0.5 * inch
 PANEL_PADDING = 0.09 * inch
+LEGEND_MARGIN = 0.15 * inch
 GRID_COLS = 4
 GRID_ROWS = 2
 SONGS_PER_PANEL = 2
@@ -139,8 +148,8 @@ def _draw_song_block(c: canvas.Canvas, x: float, y: float, w: float, h: float, s
     part_h = _part_h(h)
 
     if song is None:
-        _draw_part(c, x, y + part_h, w, part_h, "A", None)
-        _draw_part(c, x, y, w, part_h, "B", None)
+        _draw_part(c, x, y + part_h, w, part_h, "A (x 2)", None)
+        _draw_part(c, x, y, w, part_h, "B (x 2)", None)
         return
 
     max_title_font = title_h * 0.65
@@ -150,8 +159,8 @@ def _draw_song_block(c: canvas.Canvas, x: float, y: float, w: float, h: float, s
     c.setFont("Helvetica-Bold", title_font)
     c.drawCentredString(x + w / 2, y + h - title_h * 0.75, song["title"])
 
-    _draw_part(c, x, y + part_h, w, part_h, "A", song["chart"]["A"])
-    _draw_part(c, x, y, w, part_h, "B", song["chart"]["B"])
+    _draw_part(c, x, y + part_h, w, part_h, "A (x 2)", song["chart"]["A"])
+    _draw_part(c, x, y, w, part_h, "B (x 2)", song["chart"]["B"])
 
 
 def _draw_cover(c: canvas.Canvas, x: float, y: float, w: float, h: float) -> None:
@@ -217,24 +226,30 @@ def _draw_back_cover(c: canvas.Canvas, x: float, y: float, w: float, h: float) -
 
 
 def _draw_panel(c: canvas.Canvas, x: float, y: float, w: float, h: float, rotated: bool, draw_fn) -> None:
-    # Inset the content a bit from the panel's true edges (which double as
-    # fold/cut lines) so nothing sits right on a crease once folded.
-    pad = PANEL_PADDING
+    # Inset the content from the panel's true edges (which double as fold/cut
+    # lines) so nothing sits right on a crease once folded, and so outer
+    # panels aren't printer-clipped. pad_x is applied on both sides of every
+    # panel - interior fold lines included - so all panels end up the same
+    # physical width once folded; see PANEL_INSET_X.
+    pad_x, pad_y = PANEL_INSET_X, PANEL_PADDING
     c.saveState()
     if rotated:
         c.translate(x + w / 2, y + h / 2)
         c.rotate(180)
-        draw_fn(c, -w / 2 + pad, -h / 2 + pad, w - 2 * pad, h - 2 * pad)
+        draw_fn(c, -w / 2 + pad_x, -h / 2 + pad_y, w - 2 * pad_x, h - 2 * pad_y)
     else:
-        draw_fn(c, x + pad, y + pad, w - 2 * pad, h - 2 * pad)
+        draw_fn(c, x + pad_x, y + pad_y, w - 2 * pad_x, h - 2 * pad_y)
     c.restoreState()
 
 
 def _draw_fold_and_cut_guides(c: canvas.Canvas, page_w: float, page_h: float, panel_w: float, panel_h: float) -> None:
-    left, right = MARGIN, page_w - MARGIN
-    bottom, top = MARGIN, page_h - MARGIN
-    mid_y = MARGIN + panel_h
-    col_xs = [MARGIN + i * panel_w for i in (1, 2, 3)]
+    # Fold lines sit at the sheet's true physical quarters/edges (panel_w is
+    # no longer margin-adjusted), independent of the content-inset margins
+    # applied inside each panel by _draw_panel.
+    left, right = 0.0, page_w
+    bottom, top = MARGIN_Y, page_h - MARGIN_Y
+    mid_y = MARGIN_Y + panel_h
+    col_xs = [i * panel_w for i in (1, 2, 3)]
 
     c.saveState()
     c.setStrokeColorRGB(*GRAY)
@@ -256,16 +271,17 @@ def _draw_fold_and_cut_guides(c: canvas.Canvas, page_w: float, page_h: float, pa
     c.restoreState()
 
     c.saveState()
+    legend_x = LEGEND_MARGIN
     legend_y = bottom * 0.4
     c.setStrokeColorRGB(*GRAY)
     c.setLineWidth(0.5)
     c.setDash([3, 3])
-    c.line(left, legend_y, left + 14, legend_y)
+    c.line(legend_x, legend_y, legend_x + 14, legend_y)
     c.setFont("Helvetica", 6)
     c.setFillColorRGB(*GRAY)
-    c.drawString(left + 18, legend_y - 2, "fold")
+    c.drawString(legend_x + 18, legend_y - 2, "fold")
 
-    cut_swatch_x = left + 55
+    cut_swatch_x = legend_x + 55
     c.setStrokeColorRGB(*DARK)
     c.setLineWidth(1.2)
     c.setDash([])
@@ -280,8 +296,8 @@ def build_zine_pdf(songs: list[dict], booklet_title: str | None = None) -> bytes
     page_w, page_h = landscape(letter)
     c = canvas.Canvas(buf, pagesize=(page_w, page_h))
 
-    panel_w = (page_w - 2 * MARGIN) / GRID_COLS
-    panel_h = (page_h - 2 * MARGIN) / GRID_ROWS
+    panel_w = page_w / GRID_COLS
+    panel_h = (page_h - 2 * MARGIN_Y) / GRID_ROWS
     per_sheet = len(CONTENT_PAGES) * SONGS_PER_PANEL
 
     title = booklet_title or f"Jam Songs — {date.today().isoformat()}"
@@ -301,10 +317,10 @@ def build_zine_pdf(songs: list[dict], booklet_title: str | None = None) -> bytes
             page_content[page_num] = ("songs", padded)
 
         for row, page_order in ((0, TOP_ROW_PAGES), (1, BOTTOM_ROW_PAGES)):
-            y = MARGIN + panel_h if row == 0 else MARGIN
+            y = MARGIN_Y + panel_h if row == 0 else MARGIN_Y
             rotated = row == 0
             for col, page_num in enumerate(page_order):
-                x = MARGIN + col * panel_w
+                x = col * panel_w
                 kind, payload = page_content[page_num]
 
                 if kind == "cover":
